@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>The Clicker Game 0.15: Reboot</title>
+    <style>
+        :root {
+            --primary: #00d2ff; --bg: #0b0f1a; --card: rgba(30, 41, 59, 0.7);
+            --grey: #94a3b8; --green: #2ed573; --gold: #ffdd59;
+            --purple: #c084fc; --red: #ff4757; --prestige: #f368e0; --crit: #fff200;
+            --ocean: #00a8ff; --border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            background: radial-gradient(circle at center, #1e293b 0%, #0b0f1a 100%);
+            color: white; font-family: 'Segoe UI', Roboto, Helvetica, sans-serif;
+            display: flex; flex-direction: column; align-items: center;
+            height: 100vh; margin: 0; overflow: hidden; touch-action: none; 
+            user-select: none; -webkit-user-select: none;
+        }
+
+        /* Scanline Effect for "Gaming" feel */
+        body::before {
+            content: " "; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 3px, 3px 100%; pointer-events: none; z-index: 1000;
+        }
+
+        .poseidon-flash { background-color: var(--ocean) !important; transition: background-color 0.8s ease-out; }
+
+        .controls {
+            position: fixed; top: 20px; left: 20px; right: 20px;
+            display: flex; justify-content: space-between; align-items: flex-start; z-index: 100;
+        }
+        
+        .left-group { width: 120px; position: relative; display: flex; flex-direction: column; gap: 8px; }
+
+        .btn-ui {
+            background: var(--card); border: 1px solid var(--border);
+            backdrop-filter: blur(10px); color: white; padding: 12px; border-radius: 8px; 
+            font-size: 0.7rem; font-weight: bold; cursor: pointer; text-transform: uppercase;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: 0.2s;
+        }
+        .btn-ui:hover { border-color: var(--primary); color: var(--primary); }
+
+        .mood-menu {
+            display: none; position: absolute; top: 100px; left: 0; width: 130px;
+            flex-direction: column; gap: 5px; z-index: 110;
+            background: var(--card); padding: 10px; border-radius: 12px; 
+            border: 1px solid var(--primary); backdrop-filter: blur(15px);
+        }
+        .mood-menu.active { display: flex; animation: slideIn 0.2s ease-out; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* The Dashboard */
+        .header { 
+            margin-top: 80px; width: 90%; max-width: 400px; padding: 20px;
+            background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+            backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center; position: relative;
+        }
+
+        #score { 
+            font-size: 3.5rem; font-weight: 950; color: white; margin: 0; line-height: 1;
+            background: linear-gradient(to bottom, #fff, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 10px rgba(0, 210, 255, 0.4));
+        }
+
+        .data-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;
+            border-top: 1px solid var(--border); padding-top: 15px;
+        }
+        .data-item { font-size: 0.8rem; color: var(--grey); }
+        .data-val { display: block; font-size: 1rem; color: white; font-weight: 800; }
+
+        #rank-title { 
+            font-size: 0.65rem; color: var(--prestige); font-weight: 900; 
+            letter-spacing: 3px; margin-bottom: 5px; text-shadow: 0 0 5px var(--prestige);
+        }
+
+        /* The Big Button */
+        .game-area { flex: 1; display: flex; align-items: center; justify-content: center; width: 100%; }
+        .click-area {
+            width: 220px; height: 220px; border-radius: 50%;
+            background: #1e293b; border: 8px solid #0f172a;
+            box-shadow: 0 0 0 4px var(--primary), 0 20px 50px rgba(0,0,0,0.6), inset 0 0 30px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.05s; position: relative;
+        }
+        .click-area::after {
+            content: ''; position: absolute; top: 10%; left: 10%; width: 80%; height: 80%;
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.1), transparent); border-radius: 50%;
+        }
+        .click-area:active { transform: scale(0.95) translateY(5px); box-shadow: 0 0 0 6px var(--primary), 0 5px 20px rgba(0,0,0,0.8); }
+        .click-area span { font-size: 2rem; font-weight: 900; color: var(--primary); text-shadow: 0 0 10px var(--primary); z-index: 2; }
+
+        .shop-toggle { 
+            position: fixed; bottom: 30px; background: linear-gradient(135deg, var(--primary), #00a8ff); 
+            color: #000; padding: 18px 80px; border-radius: 15px; font-weight: 900; z-index: 20; 
+            border: none; text-transform: uppercase; letter-spacing: 2px;
+            box-shadow: 0 10px 25px rgba(0, 210, 255, 0.4); cursor: pointer;
+        }
+
+        .full-menu {
+            position: fixed; bottom: 0; width: 100%; max-width: 550px; background: #0f172a; 
+            border-top: 4px solid var(--primary); border-radius: 30px 30px 0 0; 
+            height: 80vh; overflow-y: auto; padding: 25px; box-sizing: border-box;
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); z-index: 30; transform: translateY(100%);
+        }
+        .full-menu.open { transform: translateY(0); }
+
+        .upgrade-item { 
+            padding: 18px; border-radius: 16px; margin-bottom: 12px; 
+            background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .buy-btn { 
+            background: #1e293b; color: white; border: 1px solid var(--border); padding: 12px 20px; 
+            border-radius: 8px; font-weight: 800; cursor: pointer; transition: 0.2s;
+        }
+        .buy-btn:not(:disabled) { background: var(--primary); color: #000; box-shadow: 0 0 15px rgba(0,210,255,0.3); }
+
+        .floating-text { position: absolute; font-weight: 900; animation: floatUp 0.8s ease-out forwards; pointer-events: none; }
+        @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-130px) scale(1.2); opacity: 0; } }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <div class="left-group">
+            <button class="btn-ui" id="mute-btn" onclick="toggleMute()">🔊 Audio</button>
+            <button class="btn-ui" onclick="toggleMoodMenu()">🔥 Moods</button>
+            <div id="mood-menu" class="mood-menu">
+                <button class="mood-opt btn-ui" onclick="setMood('off')">Silence</button>
+                <button class="mood-opt btn-ui" onclick="setMood('camp')">Campfire</button>
+                <button class="mood-opt btn-ui" onclick="setMood('rain')">Rainfall</button>
+                <button class="mood-opt btn-ui" onclick="setMood('storm')">Storm</button>
+            </div>
+        </div>
+        <button id="prestige-btn" class="btn-ui" onclick="prestige()" style="height: 60px; border-color: var(--prestige); color: var(--prestige);">Rank Up<br>---</button>
+    </div>
+
+    <div class="header">
+        <div id="rank-title">NOVICE SCRAPPER</div>
+        <div id="score">0</div>
+        <div class="data-grid">
+            <div class="data-item">PRODUCTION<span class="data-val" id="cps">0/s</span></div>
+            <div class="data-item">CURRENT RANK<span class="data-val" id="prestige-display">Rank 0</span></div>
+        </div>
+        <div id="pp-display" onclick="openLegacy()" style="margin-top:15px; font-size: 0.75rem; color: var(--gold); cursor:pointer;">
+            LEGACY POINTS: 0
+        </div>
+    </div>
+
+    <div class="game-area" id="game-area">
+        <div id="clicker" class="click-area">
+            <span>TAP</span>
+        </div>
+    </div>
+
+    <button class="shop-toggle" onclick="openShop()">Hardware Shop</button>
+
+    <div id="shopMenu" class="full-menu">
+        <button onclick="closeMenus()" style="width:100%; background:none; border:none; color:var(--grey); padding:10px; cursor:pointer; font-weight:800;">DISMISS SHOP ▼</button>
+        <div id="shop-container"></div>
+    </div>
+
+    <div id="legacyMenu" class="full-menu" style="border-top-color: var(--gold);">
+        <h2 style="text-align:center; color:var(--gold); margin-top:0; text-transform:uppercase; letter-spacing:4px;">Legacy Vault</h2>
+        <div id="legacy-container"></div>
+        <button onclick="closeMenus()" style="width:100%; background:none; border:none; color:var(--grey); padding:10px; cursor:pointer; font-weight:800;">DISMISS VAULT ▼</button>
+    </div>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let isMuted = localStorage.getItem('Elite_Muted') === 'true';
+        let currentBgm = null, poseidonTimer = 0;
+
+        let game = {
+            score: 0, tapPower: 1, autoIncome: 0, mult: 1, prestigeLevel: 0, pp: 0, critChance: 0.05,
+            poseidonOwned: false,
+            legacy: { mult: 1, critPower: 10, startCash: 0, autoSpeed: 1 },
+            legacyCosts: { mult: 5, critPower: 5, startCash: 10, autoSpeed: 15 },
+            costs: { c1:15, a1:50, a2:150, c2:500, a3:1200, a4:4000, cr:8000, c3:15000, a5:50000, a6:250000, m1:1000000, s1:10000000 }
+        };
+        const baseCosts = {...game.costs};
+        const titles = ["Novice Scrapper", "Iron Miner", "Copper Collector", "Steam Mechanic", "Electrician", "Industrialist", "Wealthy Merchant", "Oceanic Envoy", "Sea King", "Plasma Scientist", "Neural Architect", "The Singularity", "Elite God"];
+
+        function formatNum(n) {
+            if (n >= 1000000) return (n / 1000000).toFixed(2) + "M";
+            if (n >= 1000) return (n / 1000).toFixed(1) + "k";
+            return Math.floor(n);
+        }
+
+        function playSound(f, v=0.06) {
+            if (isMuted || audioCtx.state === 'suspended') return;
+            const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+            o.frequency.setValueAtTime(f, audioCtx.currentTime);
+            g.gain.setValueAtTime(v, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.15);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + 0.15);
+        }
+
+        function setMood(type) {
+            if (currentBgm) { currentBgm.stop(); currentBgm = null; }
+            if (type === 'off') { toggleMoodMenu(); return; }
+            const bufferSize = audioCtx.sampleRate * 2.5;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() * 2 - 1) * (type === 'storm' ? 0.04 : 0.02);
+                if (type === 'camp' && Math.random() > 0.9992) data[i] += (Math.random() * 2 - 1) * 0.45;
+            }
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer; source.loop = true;
+            const g = audioCtx.createGain(); g.gain.value = 0.1;
+            source.connect(g); g.connect(audioCtx.destination);
+            source.start(); currentBgm = source; toggleMoodMenu();
+        }
+
+        function buy(id, val, type) {
+            if (game.score >= game.costs[id]) {
+                game.score -= game.costs[id];
+                if(type === 'tap') game.tapPower += val;
+                if(type === 'auto') game.autoIncome += val;
+                if(type === 'crit') game.critChance += val;
+                if(type === 'tapMult') game.tapPower *= val;
+                if(type === 'globalMult') game.mult *= val;
+                game.costs[id] = Math.round(game.costs[id] * 1.75);
+                playSound(400, 0.1); initShop(); update();
+            }
+        }
+
+        function buyLegacy(key) {
+            if (game.pp >= game.legacyCosts[key]) {
+                game.pp -= game.legacyCosts[key];
+                if (key === 'mult') game.legacy.mult += 0.2;
+                if (key === 'critPower') game.legacy.critPower += 2;
+                if (key === 'startCash') game.legacy.startCash += 500;
+                if (key === 'autoSpeed') game.legacy.autoSpeed += 0.1;
+                game.legacyCosts[key] += 5;
+                playSound(600, 0.1); initShop(); update();
+            }
+        }
+
+        function buyPoseidon() {
+            if (!game.poseidonOwned && game.prestigeLevel >= 7 && game.pp >= 80) {
+                game.pp -= 80; game.poseidonOwned = true;
+                document.getElementById('clicker').classList.add('poseidon-glow');
+                playSound(100, 0.5); initShop(); update();
+            }
+        }
+
+        function prestige() {
+            const req = 10000 * Math.pow(5, game.prestigeLevel);
+            if (game.score >= req) {
+                game.prestigeLevel++; game.pp += 10;
+                game.score = game.legacy.startCash; game.tapPower = 1; game.autoIncome = 0; game.mult = 1; game.critChance = 0.05;
+                game.costs = {...baseCosts};
+                initShop(); update(); closeMenus();
+            }
+        }
+
+        function update() {
+            const req = 10000 * Math.pow(5, game.prestigeLevel);
+            const totalMult = game.mult * game.legacy.mult * (1 + game.prestigeLevel * 0.1);
+            document.getElementById('score').innerText = formatNum(game.score);
+            document.getElementById('cps').innerText = `${formatNum(game.autoIncome * totalMult * game.legacy.autoSpeed)}/s`;
+            document.getElementById('prestige-display').innerText = `Level ${game.prestigeLevel}`;
+            document.getElementById('pp-display').innerText = `VAULT CREDITS: ${game.pp}`;
+            document.getElementById('rank-title').innerText = titles[Math.min(game.prestigeLevel, titles.length - 1)];
+
+            const pBtn = document.getElementById('prestige-btn');
+            pBtn.innerHTML = `Rank Up<br>${formatNum(req)}`;
+            pBtn.style.boxShadow = game.score >= req ? '0 0 20px var(--prestige)' : 'none';
+
+            const upgradesData = [
+                { id: 'c1', name: 'Hand Wrap', val: 1, type: 'tap', color: 'var(--grey)' },
+                { id: 'a1', name: 'Auto-Tapper', val: 1, type: 'auto', color: 'var(--grey)' },
+                { id: 'a2', name: 'Nerve Fiber', val: 3, type: 'auto', color: 'var(--grey)' },
+                { id: 'c2', name: 'Power Gasket', val: 5, type: 'tap', color: 'var(--green)' },
+                { id: 'a3', name: 'Steam Piston', val: 15, type: 'auto', color: 'var(--green)' },
+                { id: 'a4', name: 'Volt Coil', val: 40, type: 'auto', color: 'var(--green)' },
+                { id: 'cr', name: 'Optic Lens', val: 0.03, type: 'crit', color: 'var(--gold)' },
+                { id: 'c3', name: 'Impact Amp', val: 2, type: 'tapMult', color: 'var(--gold)' },
+                { id: 'a5', name: 'Fusion Core', val: 200, type: 'auto', color: 'var(--gold)' },
+                { id: 'a6', name: 'Ion Engine', val: 1000, type: 'auto', color: 'var(--purple)' },
+                { id: 'm1', name: 'Neural Grid', val: 2, type: 'globalMult', color: 'var(--purple)' },
+                { id: 's1', name: 'THE VOID', val: 10, type: 'globalMult', color: 'var(--red)' }
+            ];
+
+            upgradesData.forEach(u => {
+                const b = document.getElementById('btn-'+u.id);
+                if(b) { b.innerText = formatNum(game.costs[u.id]); b.disabled = game.score < game.costs[u.id]; }
+            });
+
+            const posBtn = document.getElementById('btn-poseidon');
+            if (posBtn) {
+                if (game.poseidonOwned) { posBtn.innerText = "OWNED"; posBtn.disabled = true; }
+                else { posBtn.innerText = "80 PP"; posBtn.disabled = game.pp < 80 || game.prestigeLevel < 7; }
+            }
+            localStorage.setItem('Elite_Pro_Save', JSON.stringify(game));
+        }
+
+        function initShop() {
+            const upgradesData = [
+                { id: 'c1', name: 'Hand Wrap', val: 1, type: 'tap', color: 'var(--grey)' },
+                { id: 'a1', name: 'Auto-Tapper', val: 1, type: 'auto', color: 'var(--grey)' },
+                { id: 'a2', name: 'Nerve Fiber', val: 3, type: 'auto', color: 'var(--grey)' },
+                { id: 'c2', name: 'Power Gasket', val: 5, type: 'tap', color: 'var(--green)' },
+                { id: 'a3', name: 'Steam Piston', val: 15, type: 'auto', color: 'var(--green)' },
+                { id: 'a4', name: 'Volt Coil', val: 40, type: 'auto', color: 'var(--green)' },
+                { id: 'cr', name: 'Optic Lens', val: 0.03, type: 'crit', color: 'var(--gold)' },
+                { id: 'c3', name: 'Impact Amp', val: 2, type: 'tapMult', color: 'var(--gold)' },
+                { id: 'a5', name: 'Fusion Core', val: 200, type: 'auto', color: 'var(--gold)' },
+                { id: 'a6', name: 'Ion Engine', val: 1000, type: 'auto', color: 'var(--purple)' },
+                { id: 'm1', name: 'Neural Grid', val: 2, type: 'globalMult', color: 'var(--purple)' },
+                { id: 's1', name: 'THE VOID', val: 10, type: 'globalMult', color: 'var(--red)' }
+            ];
+
+            document.getElementById('shop-container').innerHTML = upgradesData.map(u => `
+                <div class="upgrade-item">
+                    <div><strong style="color:${u.color}">${u.name}</strong><br><small style="opacity:0.6">${u.type === 'auto' ? `+${u.val}/s` : (u.type === 'tap' ? `+${u.val}/tap` : (u.type === 'crit' ? `+${u.val*100}% Crit` : `x${u.val} Power`))}</small></div>
+                    <button class="buy-btn" id="btn-${u.id}" onclick="buy('${u.id}', ${u.val}, '${u.type}')"></button>
+                </div>`).join('');
+
+            document.getElementById('legacy-container').innerHTML = `
+                <div class="upgrade-item" style="border-color: var(--ocean)">
+                    <div><strong style="color:var(--ocean)">POSEIDON PROTOCOL</strong><br><small>Instant 1.5x score / min</small></div>
+                    <button class="buy-btn" id="btn-poseidon" onclick="buyPoseidon()"></button>
+                </div>
+                <div class="upgrade-item">
+                    <div><strong>Hyper-Greed</strong><br><small>Multi: x${game.legacy.mult.toFixed(1)}</small></div>
+                    <button class="buy-btn" onclick="buyLegacy('mult')" ${game.pp < game.legacyCosts.mult ? 'disabled' : ''}>${game.legacyCosts.mult} PP</button>
+                </div>
+                <div class="upgrade-item">
+                    <div><strong>Deep Critical</strong><br><small>Crit: x${game.legacy.critPower}</small></div>
+                    <button class="buy-btn" onclick="buyLegacy('critPower')" ${game.pp < game.legacyCosts.critPower ? 'disabled' : ''}>${game.legacyCosts.critPower} PP</button>
+                </div>
+                <div class="upgrade-item">
+                    <div><strong>Siphon Start</strong><br><small>Start: $${formatNum(game.legacy.startCash)}</small></div>
+                    <button class="buy-btn" onclick="buyLegacy('startCash')" ${game.pp < game.legacyCosts.startCash ? 'disabled' : ''}>${game.legacyCosts.startCash} PP</button>
+                </div>
+                <div class="upgrade-item">
+                    <div><strong>CPU Overclock</strong><br><small>Speed: ${Math.round(game.legacy.autoSpeed * 100)}%</small></div>
+                    <button class="buy-btn" onclick="buyLegacy('autoSpeed')" ${game.pp < game.legacyCosts.autoSpeed ? 'disabled' : ''}>${game.legacyCosts.autoSpeed} PP</button>
+                </div>`;
+        }
+
+        function handleTap(e) {
+            if(e) e.preventDefault();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            let isCrit = Math.random() < game.critChance;
+            let totalMult = game.mult * game.legacy.mult * (1 + game.prestigeLevel * 0.1);
+            let g = game.tapPower * totalMult; if (isCrit) g *= game.legacy.critPower;
+            game.score += g; pop(`+${formatNum(g)}`, isCrit);
+            playSound(150 + Math.random()*50); update();
+        }
+
+        function pop(v, crit) {
+            const d = document.createElement('div'); d.className = 'floating-text'; 
+            if(crit) { d.style.color = 'var(--crit)'; d.style.fontSize = '2.2rem'; d.style.textShadow = '0 0 15px var(--crit)'; }
+            d.innerText = v; d.style.left = `calc(50% + ${(Math.random()-0.5)*180}px)`; d.style.top = '50%';
+            document.getElementById('game-area').appendChild(d); setTimeout(()=>d.remove(), 800);
+        }
+
+        const clk = document.getElementById('clicker');
+        clk.addEventListener('touchstart', handleTap);
+        clk.addEventListener('mousedown', (e) => { if(e.button===0) handleTap(); });
+        function openShop() { document.getElementById('shopMenu').classList.add('open'); }
+        function openLegacy() { document.getElementById('legacyMenu').classList.add('open'); }
+        function closeMenus() { document.querySelectorAll('.full-menu').forEach(m => m.classList.remove('open')); }
+        function toggleMoodMenu() { document.getElementById('mood-menu').classList.toggle('active'); }
+        function toggleMute() { isMuted = !isMuted; localStorage.setItem('Elite_Muted', isMuted); document.getElementById('mute-btn').innerText = isMuted ? '🔈 Audio' : '🔊 Audio'; }
+
+        setInterval(() => { 
+            let totalMult = game.mult * game.legacy.mult * (1 + game.prestigeLevel * 0.1);
+            game.score += (game.autoIncome * totalMult * game.legacy.autoSpeed) / 10; 
+            if (game.poseidonOwned) {
+                poseidonTimer++;
+                if (poseidonTimer >= 600) { 
+                    poseidonTimer = 0; game.score *= 1.5;
+                    document.body.classList.add('poseidon-flash');
+                    setTimeout(() => document.body.classList.remove('poseidon-flash'), 1000);
+                }
+            }
+            update(); 
+        }, 100);
+        
+        const saved = localStorage.getItem('Elite_Pro_Save'); if(saved) game = JSON.parse(saved);
+        initShop(); update();
+    </script>
+</body>
+</html>
